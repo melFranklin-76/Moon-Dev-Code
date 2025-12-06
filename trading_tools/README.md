@@ -159,6 +159,96 @@ is_valid = analyzer.quick_check()  # Returns True/False
 
 ---
 
+## 🤖 Automation Tools (NEW!)
+
+### Bridge Manual Trading → Algorithmic Bots
+
+**Based on Moon Dev's RBI Framework (Research → Backtest → Implement)**
+
+Once you've built consistency with manual trading (75%+ win rate over 20+ trades), these tools help you automate your strategy:
+
+---
+
+### 6. **Strategy Analyzer** (`strategy_analyzer.py`)
+Export and analyze your manual trades for automation.
+
+**Features:**
+- Export to backtesting.py CSV format
+- Extract winning rules from trade journal
+- Generate strategy reports with code snippets
+- Moon Dev nice_funks.py integration
+
+**Usage:**
+```bash
+python strategy_analyzer.py
+```
+
+**Outputs:**
+- `backtest_data.csv` - Ready for backtesting
+- `strategy_report.txt` - Automatable rules
+- `moon_dev_export.json` - Bot integration format
+
+---
+
+### 7. **Backtest Module** (`backtest_ross_strategy.py`)
+Test Ross's 5-pillar strategy on historical data.
+
+**Features:**
+- Simulates trades on historical 5-min data
+- Tests pullback pattern detection
+- Calculates win rate, P/L ratio, Sharp ratio
+- Validates MACD entry rule
+- Identifies edge cases and failures
+
+**Usage:**
+```bash
+python backtest_ross_strategy.py
+```
+
+**Targets:**
+- Win Rate: 75%+
+- P/L Ratio: 2:1+
+- Sharp Ratio: 2.0+ (Moon Dev standard)
+- Max Drawdown: <10%
+
+---
+
+### 8. **Strategy Bridge** (`strategy_bridge.py`)
+Generate bot code from your winning patterns.
+
+**Features:**
+- Extracts patterns from winning trades
+- Generates complete trading bot skeleton
+- Creates Moon Dev nice_funks.py functions
+- Paper trading ready code
+
+**Usage:**
+```bash
+python strategy_bridge.py
+```
+
+**Outputs:**
+- `ross_cameron_bot.py` - Full trading bot
+- `ross_nice_funks.py` - Moon Dev integration
+
+---
+
+### Automation Workflow:
+
+```
+1. Manual Trading (20+ trades) → trade_journal.py
+2. Find Pocket → pocket_finder.py
+3. Export & Analyze → strategy_analyzer.py
+4. Backtest Strategy → backtest_ross_strategy.py
+5. Generate Bot → strategy_bridge.py
+6. Paper Trade → ross_cameron_bot.py
+7. Deploy Live → Moon Dev framework
+```
+
+📖 **See [AUTOMATION_GUIDE.md](AUTOMATION_GUIDE.md) for complete details**
+
+---
+
 ## 🚀 Installation
 
 ### 1. Install Python Dependencies

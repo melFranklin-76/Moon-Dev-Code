@@ -159,7 +159,76 @@ is_valid = analyzer.quick_check()  # Returns True/False
 
 ---
 
-## 🤖 Automation Tools (NEW!)
+## 💎 OPTIONS TRADING TOOLKIT (NEW!) 🚀
+
+### **Ross Cameron's 5-Pillar Strategy Optimized for Options**
+
+**Perfect for small accounts ($2K-$10K) who want faster gains with defined risk**
+
+Trade OPTIONS instead of shares for:
+- ✅ **More Leverage:** Control 1000 shares with $500 vs $6,000
+- ✅ **Bigger % Gains:** 50-200% per trade vs 5-10%
+- ✅ **Defined Risk:** Max loss = premium paid
+- ✅ **Small Capital:** Trade with $100-$500 per position
+
+---
+
+### 🔍 **Options Scanner** (`options_scanner.py`)
+Find stocks with 5-pillar setups + liquid options to trade.
+
+**Features:**
+- Scans for Ross Cameron's 5 pillars
+- Validates options liquidity (spread, open interest, volume)
+- Identifies best strikes (ITM/ATM with high delta)
+- Ranks setups by quality (1-5 stars)
+
+**Usage:**
+```bash
+python options_scanner.py
+```
+
+---
+
+### 💰 **Options Position Calculator** (`options_position_calculator.py`)
+Calculate position size with Greeks analysis.
+
+**Features:**
+- Contract quantity based on 5% risk
+- Greeks calculator (Delta, Theta, Gamma, Vega)
+- Break-even price calculator
+- Profit targets for different stock moves
+- Multiple strike comparison
+
+**Usage:**
+```bash
+python options_position_calculator.py
+```
+
+---
+
+### 📒 **Options Trade Journal** (`options_trade_journal.py`)
+Track options trades with complete details.
+
+**Features:**
+- Strike, expiration, premium tracking
+- Greeks at entry/exit
+- Theta decay impact analysis
+- Performance by option type (ITM/ATM/OTM)
+
+**Usage:**
+```bash
+python options_trade_journal.py
+```
+
+---
+
+### 📖 Complete Options Guide
+
+📘 **See [OPTIONS_GUIDE.md](OPTIONS_GUIDE.md)** for complete workflow, strategies, and examples!
+
+---
+
+## 🤖 Automation Tools
 
 ### Bridge Manual Trading → Algorithmic Bots
 

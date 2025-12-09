@@ -310,13 +310,14 @@ def scanner_page():
     tickers_input = st.text_input(
         "Enter tickers to scan:",
         placeholder="PTON, SAVA, AMD",
-        help="Comma-separated ticker symbols"
+        help="Comma-separated ticker symbols",
+        key="scanner_ticker_input"
     )
 
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
 
     with col1:
-        if st.button("🔍 SCAN NOW", type="primary"):
+        if st.button("🔍 SCAN NOW", type="primary", key="scan_manual"):
             if tickers_input:
                 with st.spinner("🔍 Scanning for tradeable options..."):
                     scan_stocks(tickers_input)
@@ -324,13 +325,105 @@ def scanner_page():
                 st.warning("⚠️ Please enter at least one ticker")
 
     with col2:
-        if st.button("📋 Demo Scan"):
+        if st.button("🤖 Auto-Scan Market", type="secondary", key="auto_scan_market"):
+            with st.spinner("🤖 Fetching top gainers from market..."):
+                auto_scan_market()
+
+    with col3:
+        if st.button("📋 Demo Scan", key="demo_scan"):
             with st.spinner("🔍 Running demo scan..."):
                 scan_stocks("PTON, AMD, NVDA, TSLA")
 
     # Display results
     if st.session_state.scan_results is not None:
         display_scan_results()
+
+
+def get_market_gainers():
+    """
+    Fetch top gainers from market automatically
+
+    Returns:
+        list of ticker symbols
+    """
+    try:
+        # Popular optionable stocks in the $2-$20 range that are frequently active
+        # These are common day trading stocks with good options liquidity
+        candidate_pool = [
+            # Tech/Growth
+            "PLTR", "SOFI", "NIO", "LCID", "RIVN", "F", "NOK", "BABA", "GRAB",
+            # Meme/Retail favorites
+            "AMC", "APE", "GME", "BBBY", "CLOV", "WISH", "SNDL",
+            # Biotech/Pharma (volatile)
+            "SAVA", "OCGN", "VXRT", "SENS", "PTON",
+            # Energy/Materials
+            "FCEL", "PLUG", "TELL", "CLF", "AA",
+            # Others
+            "HOOD", "DKNG", "COIN", "SNAP", "UBER", "LYFT",
+            # High volume optionable
+            "AMD", "NVDA", "TSLA", "AAPL", "MSFT", "GOOGL", "META"
+        ]
+
+        # Check each stock for today's performance
+        gainers = []
+
+        for ticker in candidate_pool[:20]:  # Check first 20 to save time
+            try:
+                stock = yf.Ticker(ticker)
+                info = stock.info
+
+                # Get current price and previous close
+                current_price = info.get('currentPrice') or info.get('regularMarketPrice')
+                prev_close = info.get('previousClose') or info.get('regularMarketPreviousClose')
+
+                if not current_price or not prev_close:
+                    continue
+
+                # Calculate gain
+                gain_pct = ((current_price - prev_close) / prev_close) * 100
+
+                # Check if it's a gainer (>5% to cast wider net)
+                if gain_pct >= 5.0 and 2.0 <= current_price <= 20.0:
+                    gainers.append({
+                        'ticker': ticker,
+                        'price': current_price,
+                        'gain_pct': gain_pct
+                    })
+
+            except Exception as e:
+                continue
+
+        # Sort by gain % descending
+        gainers.sort(key=lambda x: x['gain_pct'], reverse=True)
+
+        # Return top 10 tickers
+        return [g['ticker'] for g in gainers[:10]]
+
+    except Exception as e:
+        st.error(f"Error fetching market gainers: {e}")
+        return []
+
+
+def auto_scan_market():
+    """Auto-scan market for top gainers"""
+    try:
+        st.info("🤖 Searching for today's top gainers in $2-$20 range...")
+
+        # Get top gainers
+        gainers = get_market_gainers()
+
+        if not gainers:
+            st.warning("⚠️ No strong gainers found in the target range today. Try manual entry or demo scan.")
+            return
+
+        st.success(f"✅ Found {len(gainers)} gainers! Scanning: {', '.join(gainers)}")
+
+        # Scan them
+        tickers_string = ', '.join(gainers)
+        scan_stocks(tickers_string)
+
+    except Exception as e:
+        st.error(f"❌ Error in auto-scan: {str(e)}")
 
 
 def scan_stocks(tickers_input):
@@ -353,11 +446,15 @@ def scan_stocks(tickers_input):
 
         # Scan each ticker
         results = []
-        for ticker in tickers:
+        progress_text = st.empty()
+
+        for i, ticker in enumerate(tickers):
+            progress_text.text(f"Scanning {ticker}... ({i+1}/{len(tickers)})")
             result = scanner.scan_ticker(ticker)
             if result:
                 results.append(result)
 
+        progress_text.empty()
         st.session_state.scan_results = results
 
         if results:

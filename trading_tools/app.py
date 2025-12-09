@@ -391,6 +391,8 @@ def get_market_gainers():
     Returns:
         list of ticker symbols
     """
+    import time
+
     try:
         # Small cap & penny stocks under $50 with liquid options
         # Perfect for Ross Cameron's 5-pillar strategy and small accounts
@@ -422,32 +424,38 @@ def get_market_gainers():
         gainers = []
         checked = 0
         in_range = 0
+        errors = 0
 
         # Show progress
         progress_placeholder = st.empty()
 
-        for ticker in candidate_pool[:30]:  # Check first 30 stocks
+        # Reduce to 15 stocks to avoid rate limiting
+        for ticker in candidate_pool[:15]:
             try:
                 checked += 1
-                progress_placeholder.text(f"Checking {ticker}... ({checked}/30)")
+                progress_placeholder.text(f"Checking {ticker}... ({checked}/15)")
+
+                # Add delay to avoid rate limiting (important!)
+                time.sleep(0.5)  # 500ms delay between requests
 
                 stock = yf.Ticker(ticker)
 
                 # Try to get current price - use history as fallback
                 try:
-                    info = stock.info
-                    current_price = info.get('currentPrice') or info.get('regularMarketPrice')
-                    prev_close = info.get('previousClose') or info.get('regularMarketPreviousClose')
-                except:
-                    # Fallback to history data
-                    hist = stock.history(period="5d")
+                    # Use longer period for better data availability
+                    hist = stock.history(period="1mo")
+
                     if len(hist) >= 2:
                         current_price = float(hist['Close'].iloc[-1])
                         prev_close = float(hist['Close'].iloc[-2])
                     else:
+                        errors += 1
                         continue
+                except Exception as e:
+                    errors += 1
+                    continue
 
-                if not current_price or not prev_close:
+                if not current_price or not prev_close or current_price <= 0:
                     continue
 
                 # Calculate gain
@@ -457,8 +465,8 @@ def get_market_gainers():
                 if 2.0 <= current_price <= 50.0:
                     in_range += 1
 
-                    # Lower threshold to 3% to find more opportunities
-                    if gain_pct >= 3.0:
+                    # Lower threshold to 2% to find more opportunities
+                    if gain_pct >= 2.0:
                         gainers.append({
                             'ticker': ticker,
                             'price': current_price,
@@ -466,18 +474,22 @@ def get_market_gainers():
                         })
 
             except Exception as e:
+                errors += 1
                 continue
 
         progress_placeholder.empty()
 
         # Show debug info
-        st.info(f"📊 Checked {checked} stocks | {in_range} in $2-$50 range | {len(gainers)} gaining 3%+")
+        if errors > 5:
+            st.warning(f"⚠️ Yahoo Finance API issues ({errors} errors). Results may be limited.")
+
+        st.info(f"📊 Checked {checked} stocks | {in_range} in $2-$50 range | {len(gainers)} gaining 2%+ | {errors} errors")
 
         # Sort by gain % descending
         gainers.sort(key=lambda x: x['gain_pct'], reverse=True)
 
-        # Return top 10 tickers
-        return [g['ticker'] for g in gainers[:10]]
+        # Return top 8 tickers (reduced from 10)
+        return [g['ticker'] for g in gainers[:8]]
 
     except Exception as e:
         st.error(f"Error fetching market gainers: {e}")

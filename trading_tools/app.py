@@ -23,6 +23,7 @@ from pathlib import Path
 from options_scanner import OptionsScanner
 from options_position_calculator import OptionsPositionCalculator
 from options_trade_journal import OptionsTradeJournal
+import yfinance as yf
 
 # Page config - optimized for mobile
 st.set_page_config(
@@ -170,6 +171,110 @@ def main():
 
     with tab4:
         dashboard_page()
+
+
+def fetch_live_market_data(ticker: str):
+    """
+    Fetch live market data for a ticker from yfinance
+
+    Args:
+        ticker: Stock symbol
+
+    Returns:
+        dict with stock price, best options strike, premium, etc.
+    """
+    try:
+        stock = yf.Ticker(ticker)
+
+        # Get current stock price
+        info = stock.info
+        stock_price = info.get('currentPrice') or info.get('regularMarketPrice')
+
+        if not stock_price:
+            return None
+
+        # Get options chain
+        expirations = stock.options
+
+        if not expirations:
+            return None
+
+        # Find nearest weekly expiration (within 7 days)
+        today = datetime.now()
+        weekly_exp = None
+
+        for exp in expirations:
+            exp_dt = datetime.strptime(exp, '%Y-%m-%d')
+            days_away = (exp_dt - today).days
+
+            if 0 <= days_away <= 7:
+                weekly_exp = exp
+                break
+
+        if not weekly_exp:
+            # Use first available if no weekly
+            weekly_exp = expirations[0]
+
+        # Get call options
+        chain = stock.option_chain(weekly_exp)
+        calls = chain.calls
+
+        if calls.empty:
+            return None
+
+        # Find ATM option (closest to stock price)
+        atm_strike = calls.iloc[(calls['strike'] - stock_price).abs().argsort()[:1]]
+
+        if atm_strike.empty:
+            return None
+
+        atm = atm_strike.iloc[0]
+
+        # Find ITM option (3% in the money)
+        target_itm_strike = stock_price * 0.97
+        itm_candidates = calls[calls['strike'] < stock_price]
+
+        if not itm_candidates.empty:
+            itm_strike = itm_candidates.iloc[(itm_candidates['strike'] - target_itm_strike).abs().argsort()[:1]]
+            itm = itm_strike.iloc[0]
+
+            # Prefer ITM if it has good liquidity
+            if itm['openInterest'] >= 100:
+                best = itm
+                option_type = 'ITM'
+            else:
+                best = atm
+                option_type = 'ATM'
+        else:
+            best = atm
+            option_type = 'ATM'
+
+        # Calculate spread
+        spread = best['ask'] - best['bid']
+        spread_pct = (spread / best['ask'] * 100) if best['ask'] > 0 else 100
+
+        # Calculate days to expiration
+        exp_dt = datetime.strptime(weekly_exp, '%Y-%m-%d')
+        days_to_exp = (exp_dt - today).days
+
+        return {
+            'ticker': ticker,
+            'stock_price': float(stock_price),
+            'best_strike': float(best['strike']),
+            'option_type': option_type,
+            'premium': float(best['ask']),
+            'bid': float(best['bid']),
+            'ask': float(best['ask']),
+            'spread_pct': float(spread_pct),
+            'open_interest': int(best['openInterest']),
+            'volume': int(best['volume']) if best['volume'] > 0 else 0,
+            'expiration': weekly_exp,
+            'days_to_exp': days_to_exp
+        }
+
+    except Exception as e:
+        print(f"Error fetching market data for {ticker}: {e}")
+        return None
 
 
 def scanner_page():
@@ -482,15 +587,64 @@ def calculator_page():
         # Manual entry
         st.info("💡 Tip: Scan stocks first, then tap 'Calculate' for auto-fill!")
 
-        ticker = st.text_input("Ticker:", placeholder="PTON", key="calc_ticker").upper()
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            ticker = st.text_input("Ticker:", placeholder="PTON", key="calc_ticker").upper()
+        with col2:
+            st.write("")  # Spacing
+            st.write("")  # Spacing
+            fetch_data = st.button("📡 Fetch Market Data", type="secondary", key="fetch_market_data")
+
+        # Initialize session state for fetched data
+        if 'fetched_data' not in st.session_state:
+            st.session_state.fetched_data = None
+
+        # Fetch live market data
+        if fetch_data and ticker:
+            with st.spinner(f"📡 Fetching live data for {ticker}..."):
+                market_data = fetch_live_market_data(ticker)
+                if market_data:
+                    st.session_state.fetched_data = market_data
+                    st.success(f"✅ Live data loaded for {ticker}!")
+                else:
+                    st.error(f"❌ Could not fetch data for {ticker}")
+                    st.session_state.fetched_data = None
+
+        # Use fetched data if available, otherwise defaults
+        if st.session_state.fetched_data:
+            data = st.session_state.fetched_data
+            default_price = data['stock_price']
+            default_strike = data['best_strike']
+            default_premium = data['premium']
+            default_days = data['days_to_exp']
+
+            # Show fetched data summary
+            st.markdown(f"""
+            <div class="stat-card success-card">
+                <h4>📊 Live Market Data</h4>
+                <p>
+                    <strong>Stock:</strong> ${data['stock_price']:.2f} |
+                    <strong>Best Strike:</strong> ${data['best_strike']} ({data['option_type']}) |
+                    <strong>Premium:</strong> ${data['premium']:.2f}<br>
+                    <strong>Spread:</strong> {data['spread_pct']:.1f}% |
+                    <strong>OI:</strong> {data['open_interest']:,} |
+                    <strong>Exp:</strong> {data['expiration']}
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            default_price = 6.00
+            default_strike = 5.00
+            default_premium = 0.65
+            default_days = 7
 
         col1, col2 = st.columns(2)
         with col1:
-            stock_price = st.number_input("Stock Price ($):", min_value=0.01, value=6.00, step=0.01, key="calc_stock_price")
-            premium = st.number_input("Option Premium ($):", min_value=0.01, value=0.65, step=0.01, key="calc_premium")
+            stock_price = st.number_input("Stock Price ($):", min_value=0.01, value=default_price, step=0.01, key="calc_stock_price")
+            premium = st.number_input("Option Premium ($):", min_value=0.01, value=default_premium, step=0.01, key="calc_premium")
         with col2:
-            strike = st.number_input("Strike Price ($):", min_value=0.01, value=5.00, step=0.50, key="calc_strike")
-            days_to_exp = st.number_input("Days to Expiration:", min_value=1, max_value=365, value=7, key="calc_days_to_exp")
+            strike = st.number_input("Strike Price ($):", min_value=0.01, value=default_strike, step=0.50, key="calc_strike")
+            days_to_exp = st.number_input("Days to Expiration:", min_value=1, max_value=365, value=default_days, key="calc_days_to_exp")
 
         expiration = (datetime.now() + timedelta(days=days_to_exp)).strftime('%Y-%m-%d')
 

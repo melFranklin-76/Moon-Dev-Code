@@ -364,15 +364,15 @@ def calculator_page():
         # Manual entry
         st.info("💡 Tip: Scan stocks first, then tap 'Calculate' for auto-fill!")
 
-        ticker = st.text_input("Ticker:", placeholder="PTON").upper()
+        ticker = st.text_input("Ticker:", placeholder="PTON", key="calc_ticker").upper()
 
         col1, col2 = st.columns(2)
         with col1:
-            stock_price = st.number_input("Stock Price ($):", min_value=0.01, value=6.00, step=0.01)
-            premium = st.number_input("Option Premium ($):", min_value=0.01, value=0.65, step=0.01)
+            stock_price = st.number_input("Stock Price ($):", min_value=0.01, value=6.00, step=0.01, key="calc_stock_price")
+            premium = st.number_input("Option Premium ($):", min_value=0.01, value=0.65, step=0.01, key="calc_premium")
         with col2:
-            strike = st.number_input("Strike Price ($):", min_value=0.01, value=5.00, step=0.50)
-            days_to_exp = st.number_input("Days to Expiration:", min_value=1, max_value=365, value=7)
+            strike = st.number_input("Strike Price ($):", min_value=0.01, value=5.00, step=0.50, key="calc_strike")
+            days_to_exp = st.number_input("Days to Expiration:", min_value=1, max_value=365, value=7, key="calc_days_to_exp")
 
         expiration = (datetime.now() + timedelta(days=days_to_exp)).strftime('%Y-%m-%d')
 
@@ -532,52 +532,52 @@ def add_trade_form(journal):
     col1, col2 = st.columns(2)
 
     with col1:
-        ticker = st.text_input("Ticker:", placeholder="PTON").upper()
-        strike = st.number_input("Strike Price ($):", min_value=0.01, value=5.00, step=0.50)
-        contracts = st.number_input("Contracts:", min_value=1, max_value=100, value=4)
+        ticker = st.text_input("Ticker:", placeholder="PTON", key="journal_ticker").upper()
+        strike = st.number_input("Strike Price ($):", min_value=0.01, value=5.00, step=0.50, key="journal_strike")
+        contracts = st.number_input("Contracts:", min_value=1, max_value=100, value=4, key="journal_contracts")
 
     with col2:
-        expiration = st.date_input("Expiration:", value=datetime.now() + timedelta(days=7))
-        contract_type = st.selectbox("Type:", ["CALL", "PUT"])
+        expiration = st.date_input("Expiration:", value=datetime.now() + timedelta(days=7), key="journal_expiration")
+        contract_type = st.selectbox("Type:", ["CALL", "PUT"], key="journal_contract_type")
 
     st.markdown("### 📊 Entry Details")
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        entry_premium = st.number_input("Entry Premium ($):", min_value=0.01, value=0.65, step=0.01)
+        entry_premium = st.number_input("Entry Premium ($):", min_value=0.01, value=0.65, step=0.01, key="journal_entry_premium")
     with col2:
-        entry_stock_price = st.number_input("Stock Price at Entry ($):", min_value=0.01, value=6.00, step=0.01)
+        entry_stock_price = st.number_input("Stock Price at Entry ($):", min_value=0.01, value=6.00, step=0.01, key="journal_entry_stock_price")
     with col3:
-        entry_time = st.time_input("Entry Time:", value=datetime.now().time())
+        entry_time = st.time_input("Entry Time:", value=datetime.now().time(), key="journal_entry_time")
 
     st.markdown("### 📊 Exit Details")
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        exit_premium = st.number_input("Exit Premium ($):", min_value=0.01, value=1.45, step=0.01)
+        exit_premium = st.number_input("Exit Premium ($):", min_value=0.01, value=1.45, step=0.01, key="journal_exit_premium")
     with col2:
-        exit_stock_price = st.number_input("Stock Price at Exit ($):", min_value=0.01, value=6.35, step=0.01)
+        exit_stock_price = st.number_input("Stock Price at Exit ($):", min_value=0.01, value=6.35, step=0.01, key="journal_exit_stock_price")
     with col3:
-        exit_time = st.time_input("Exit Time:", value=datetime.now().time())
+        exit_time = st.time_input("Exit Time:", value=datetime.now().time(), key="journal_exit_time")
 
     exit_reason = st.selectbox("Exit Reason:", [
         "TARGET_HIT",
         "STOP_LOSS",
         "TIME_LIMIT",
         "MACD_NEGATIVE"
-    ])
+    ], key="journal_exit_reason")
 
     st.markdown("### 📈 Strategy")
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        pattern = st.selectbox("Pattern:", ["Pullback", "Breakout", "Reversal", "Other"])
+        pattern = st.selectbox("Pattern:", ["Pullback", "Breakout", "Reversal", "Other"], key="journal_pattern")
     with col2:
-        macd_positive = st.checkbox("MACD Positive?", value=True)
+        macd_positive = st.checkbox("MACD Positive?", value=True, key="journal_macd_positive")
     with col3:
-        setup_quality = st.slider("Setup Quality:", 1, 5, 5)
+        setup_quality = st.slider("Setup Quality:", 1, 5, 5, key="journal_setup_quality")
 
-    notes = st.text_area("Notes (optional):", placeholder="What went well? What could improve?")
+    notes = st.text_area("Notes (optional):", placeholder="What went well? What could improve?", key="journal_notes")
 
     if st.button("💾 SAVE TRADE", type="primary"):
         try:

@@ -130,13 +130,24 @@ def main():
     st.markdown("# 📈 Ross Cameron Options Trader")
     st.markdown("*Trade smarter with the 5-Pillar Strategy*")
 
-    # Account balance at top
-    col1, col2 = st.columns([2, 1])
+    # Account balance at top - editable
+    st.markdown("### 💰 Account Balance")
+
+    col1, col2 = st.columns([3, 1])
     with col1:
-        st.markdown(f"### 💰 Balance: ${st.session_state.account_balance:,.2f}")
+        new_balance = st.number_input(
+            "Current Balance ($)",
+            min_value=100.0,
+            max_value=1000000.0,
+            value=st.session_state.account_balance,
+            step=100.0,
+            key="balance_input",
+            label_visibility="collapsed"
+        )
     with col2:
-        if st.button("⚙️ Settings"):
-            show_settings()
+        if st.button("💾 Save", key="save_balance"):
+            st.session_state.account_balance = new_balance
+            st.success("✅ Saved!")
 
     st.markdown("---")
 
@@ -159,25 +170,6 @@ def main():
 
     with tab4:
         dashboard_page()
-
-
-def show_settings():
-    """Settings modal"""
-    st.markdown("### ⚙️ Settings")
-
-    new_balance = st.number_input(
-        "Account Balance ($)",
-        min_value=100.0,
-        max_value=1000000.0,
-        value=st.session_state.account_balance,
-        step=100.0,
-        help="Your current trading account balance"
-    )
-
-    if st.button("💾 Save Settings"):
-        st.session_state.account_balance = new_balance
-        st.success("✅ Settings saved!")
-        st.rerun()
 
 
 def scanner_page():

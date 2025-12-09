@@ -411,15 +411,32 @@ def get_market_gainers():
 
         # Check each stock for today's performance
         gainers = []
+        checked = 0
+        in_range = 0
 
-        for ticker in candidate_pool[:20]:  # Check first 20 to save time
+        # Show progress
+        progress_placeholder = st.empty()
+
+        for ticker in candidate_pool[:25]:  # Check first 25 stocks
             try:
-                stock = yf.Ticker(ticker)
-                info = stock.info
+                checked += 1
+                progress_placeholder.text(f"Checking {ticker}... ({checked}/25)")
 
-                # Get current price and previous close
-                current_price = info.get('currentPrice') or info.get('regularMarketPrice')
-                prev_close = info.get('previousClose') or info.get('regularMarketPreviousClose')
+                stock = yf.Ticker(ticker)
+
+                # Try to get current price - use history as fallback
+                try:
+                    info = stock.info
+                    current_price = info.get('currentPrice') or info.get('regularMarketPrice')
+                    prev_close = info.get('previousClose') or info.get('regularMarketPreviousClose')
+                except:
+                    # Fallback to history data
+                    hist = stock.history(period="5d")
+                    if len(hist) >= 2:
+                        current_price = float(hist['Close'].iloc[-1])
+                        prev_close = float(hist['Close'].iloc[-2])
+                    else:
+                        continue
 
                 if not current_price or not prev_close:
                     continue
@@ -427,16 +444,25 @@ def get_market_gainers():
                 # Calculate gain
                 gain_pct = ((current_price - prev_close) / prev_close) * 100
 
-                # Check if it's a gainer (>5% to cast wider net)
-                if gain_pct >= 5.0 and 2.0 <= current_price <= 20.0:
-                    gainers.append({
-                        'ticker': ticker,
-                        'price': current_price,
-                        'gain_pct': gain_pct
-                    })
+                # Check if it's in price range first
+                if 2.0 <= current_price <= 20.0:
+                    in_range += 1
+
+                    # Lower threshold to 3% to find more opportunities
+                    if gain_pct >= 3.0:
+                        gainers.append({
+                            'ticker': ticker,
+                            'price': current_price,
+                            'gain_pct': gain_pct
+                        })
 
             except Exception as e:
                 continue
+
+        progress_placeholder.empty()
+
+        # Show debug info
+        st.info(f"📊 Checked {checked} stocks | {in_range} in $2-$20 range | {len(gainers)} gaining 3%+")
 
         # Sort by gain % descending
         gainers.sort(key=lambda x: x['gain_pct'], reverse=True)

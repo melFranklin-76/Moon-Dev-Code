@@ -187,93 +187,138 @@ def fetch_live_market_data(ticker: str):
         stock = yf.Ticker(ticker)
 
         # Get current stock price
-        info = stock.info
-        stock_price = info.get('currentPrice') or info.get('regularMarketPrice')
+        try:
+            info = stock.info
+            stock_price = info.get('currentPrice') or info.get('regularMarketPrice')
 
-        if not stock_price:
+            if not stock_price:
+                # Try alternative method - get from history
+                hist = stock.history(period="1d")
+                if not hist.empty:
+                    stock_price = float(hist['Close'].iloc[-1])
+                else:
+                    st.error(f"❌ Could not fetch current price for {ticker}")
+                    return None
+        except Exception as e:
+            st.error(f"❌ Error fetching stock info: {str(e)}")
             return None
 
         # Get options chain
-        expirations = stock.options
+        try:
+            expirations = stock.options
 
-        if not expirations:
+            if not expirations or len(expirations) == 0:
+                st.error(f"❌ No options available for {ticker}")
+                return None
+        except Exception as e:
+            st.error(f"❌ Error fetching options chain: {str(e)}")
             return None
 
         # Find nearest weekly expiration (within 7 days)
         today = datetime.now()
         weekly_exp = None
 
-        for exp in expirations:
-            exp_dt = datetime.strptime(exp, '%Y-%m-%d')
-            days_away = (exp_dt - today).days
+        try:
+            for exp in expirations:
+                exp_dt = datetime.strptime(exp, '%Y-%m-%d')
+                days_away = (exp_dt - today).days
 
-            if 0 <= days_away <= 7:
-                weekly_exp = exp
-                break
+                if 0 <= days_away <= 7:
+                    weekly_exp = exp
+                    break
 
-        if not weekly_exp:
-            # Use first available if no weekly
-            weekly_exp = expirations[0]
+            if not weekly_exp:
+                # Use first available if no weekly
+                weekly_exp = expirations[0]
+        except Exception as e:
+            st.error(f"❌ Error parsing expiration dates: {str(e)}")
+            return None
 
         # Get call options
-        chain = stock.option_chain(weekly_exp)
-        calls = chain.calls
+        try:
+            chain = stock.option_chain(weekly_exp)
+            calls = chain.calls
 
-        if calls.empty:
+            if calls.empty:
+                st.error(f"❌ No call options found for {ticker}")
+                return None
+        except Exception as e:
+            st.error(f"❌ Error fetching options data: {str(e)}")
             return None
 
         # Find ATM option (closest to stock price)
-        atm_strike = calls.iloc[(calls['strike'] - stock_price).abs().argsort()[:1]]
+        try:
+            atm_strike = calls.iloc[(calls['strike'] - stock_price).abs().argsort()[:1]]
 
-        if atm_strike.empty:
+            if atm_strike.empty:
+                st.error(f"❌ Could not find suitable strike")
+                return None
+
+            atm = atm_strike.iloc[0]
+        except Exception as e:
+            st.error(f"❌ Error finding ATM strike: {str(e)}")
             return None
 
-        atm = atm_strike.iloc[0]
-
         # Find ITM option (3% in the money)
-        target_itm_strike = stock_price * 0.97
-        itm_candidates = calls[calls['strike'] < stock_price]
+        try:
+            target_itm_strike = stock_price * 0.97
+            itm_candidates = calls[calls['strike'] < stock_price]
 
-        if not itm_candidates.empty:
-            itm_strike = itm_candidates.iloc[(itm_candidates['strike'] - target_itm_strike).abs().argsort()[:1]]
-            itm = itm_strike.iloc[0]
+            if not itm_candidates.empty:
+                itm_strike = itm_candidates.iloc[(itm_candidates['strike'] - target_itm_strike).abs().argsort()[:1]]
+                itm = itm_strike.iloc[0]
 
-            # Prefer ITM if it has good liquidity
-            if itm['openInterest'] >= 100:
-                best = itm
-                option_type = 'ITM'
+                # Prefer ITM if it has good liquidity
+                if itm['openInterest'] >= 100:
+                    best = itm
+                    option_type = 'ITM'
+                else:
+                    best = atm
+                    option_type = 'ATM'
             else:
                 best = atm
                 option_type = 'ATM'
-        else:
+        except Exception as e:
+            # Fallback to ATM if ITM search fails
             best = atm
             option_type = 'ATM'
 
         # Calculate spread
-        spread = best['ask'] - best['bid']
-        spread_pct = (spread / best['ask'] * 100) if best['ask'] > 0 else 100
+        try:
+            spread = best['ask'] - best['bid']
+            spread_pct = (spread / best['ask'] * 100) if best['ask'] > 0 else 100
 
-        # Calculate days to expiration
-        exp_dt = datetime.strptime(weekly_exp, '%Y-%m-%d')
-        days_to_exp = (exp_dt - today).days
+            # Calculate days to expiration
+            exp_dt = datetime.strptime(weekly_exp, '%Y-%m-%d')
+            days_to_exp = (exp_dt - today).days
 
-        return {
-            'ticker': ticker,
-            'stock_price': float(stock_price),
-            'best_strike': float(best['strike']),
-            'option_type': option_type,
-            'premium': float(best['ask']),
-            'bid': float(best['bid']),
-            'ask': float(best['ask']),
-            'spread_pct': float(spread_pct),
-            'open_interest': int(best['openInterest']),
-            'volume': int(best['volume']) if best['volume'] > 0 else 0,
-            'expiration': weekly_exp,
-            'days_to_exp': days_to_exp
-        }
+            # Ensure we have valid data
+            if best['ask'] <= 0:
+                st.error(f"❌ Invalid premium data (ask price is ${best['ask']:.2f})")
+                return None
+
+            return {
+                'ticker': ticker,
+                'stock_price': float(stock_price),
+                'best_strike': float(best['strike']),
+                'option_type': option_type,
+                'premium': float(best['ask']),
+                'bid': float(best['bid']),
+                'ask': float(best['ask']),
+                'spread_pct': float(spread_pct),
+                'open_interest': int(best['openInterest']),
+                'volume': int(best['volume']) if best['volume'] > 0 else 0,
+                'expiration': weekly_exp,
+                'days_to_exp': days_to_exp
+            }
+
+        except Exception as e:
+            st.error(f"❌ Error calculating spread/premium: {str(e)}")
+            return None
 
     except Exception as e:
-        print(f"Error fetching market data for {ticker}: {e}")
+        st.error(f"❌ Unexpected error fetching market data: {str(e)}")
+        st.info("💡 Tip: Make sure the ticker symbol is valid and the market is open (or recently closed)")
         return None
 
 

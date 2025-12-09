@@ -26,6 +26,15 @@ from typing import Dict, List, Optional
 import warnings
 warnings.filterwarnings('ignore')
 
+# Import technical analysis modules
+try:
+    from technical_indicators import TechnicalIndicators
+    from candlestick_patterns import CandlestickPatternRecognizer
+    TECHNICAL_ANALYSIS_AVAILABLE = True
+except ImportError:
+    TECHNICAL_ANALYSIS_AVAILABLE = False
+    print("⚠️  Technical analysis modules not available")
+
 
 class OptionsScanner:
     def __init__(self,
@@ -275,6 +284,58 @@ class OptionsScanner:
             print(f"   ⚠️  Options error for {ticker}: {str(e)}")
             return None
 
+    def get_technical_analysis(self, ticker: str) -> Optional[Dict]:
+        """
+        Get technical indicators analysis
+
+        Args:
+            ticker: Stock symbol
+
+        Returns:
+            Dict with all technical indicators or None
+        """
+        if not TECHNICAL_ANALYSIS_AVAILABLE:
+            return None
+
+        try:
+            analyzer = TechnicalIndicators(ticker, period="3mo", interval="1d")
+            indicators = analyzer.get_all_indicators()
+
+            if not indicators:
+                return None
+
+            trade_signal = analyzer.get_trade_signal()
+            indicators['trade_signal'] = trade_signal
+
+            return indicators
+
+        except Exception as e:
+            print(f"   ⚠️  Technical analysis error for {ticker}: {str(e)}")
+            return None
+
+    def get_candlestick_patterns(self, ticker: str) -> Optional[Dict]:
+        """
+        Get candlestick pattern analysis
+
+        Args:
+            ticker: Stock symbol
+
+        Returns:
+            Dict with identified patterns or None
+        """
+        if not TECHNICAL_ANALYSIS_AVAILABLE:
+            return None
+
+        try:
+            recognizer = CandlestickPatternRecognizer(ticker, period="1mo", interval="1d")
+            patterns = recognizer.scan_all_patterns()
+
+            return patterns
+
+        except Exception as e:
+            print(f"   ⚠️  Pattern recognition error for {ticker}: {str(e)}")
+            return None
+
     def scan_ticker(self, ticker: str) -> Optional[Dict]:
         """
         Complete scan of a single ticker
@@ -324,6 +385,38 @@ class OptionsScanner:
         print(f"      OI: {options_check['open_interest']:,}")
         print(f"      Exp: {options_check['expiration']} ({options_check['days_to_expiration']} days)")
 
+        # Get technical analysis
+        print(f"\n   📊 Running technical analysis...")
+        technical = self.get_technical_analysis(ticker)
+
+        if technical and technical.get('trade_signal'):
+            signal = technical['trade_signal']
+            print(f"   {signal['emoji']} Trade Signal: {signal['signal']} (Score: {signal['score']})")
+
+            # Show key indicators
+            if technical.get('macd'):
+                macd = technical['macd']
+                print(f"      MACD: {'✅ Positive' if macd['is_positive'] else '❌ Negative'}")
+
+            if technical.get('rsi'):
+                rsi = technical['rsi']
+                print(f"      RSI: {rsi['rsi']} {rsi['color']} ({rsi['signal']})")
+
+            if technical.get('moving_averages'):
+                mas = technical['moving_averages']
+                print(f"      Trend: {mas['trend_emoji']} {mas['trend']}")
+
+        # Get candlestick patterns
+        print(f"\n   🕯️  Scanning candlestick patterns...")
+        patterns = self.get_candlestick_patterns(ticker)
+
+        if patterns and patterns.get('pattern_count', 0) > 0:
+            print(f"   {patterns['signal_emoji']} Found {patterns['pattern_count']} pattern(s) - {patterns['overall_signal']}")
+            for p in patterns['patterns_found'][:3]:  # Show top 3
+                print(f"      {p['emoji']} {p['name']}: {p['description']}")
+        else:
+            print(f"   ➡️ No significant patterns")
+
         # Calculate setup quality (1-5 stars)
         quality_score = 0
 
@@ -341,16 +434,30 @@ class OptionsScanner:
         if options_check['open_interest'] > 500:  # High liquidity
             quality_score += 1
 
+        # Technical analysis bonus points
+        if technical and technical.get('trade_signal'):
+            signal = technical['trade_signal']
+            if signal['signal'] in ['BUY', 'STRONG_BUY']:
+                quality_score += 2  # Bonus for bullish signals
+            if technical.get('macd', {}).get('is_positive'):
+                quality_score += 1  # Bonus for MACD positive
+
+        # Candlestick pattern bonus
+        if patterns and patterns.get('overall_signal') == 'BULLISH':
+            quality_score += 1
+
         setup_quality = min(5, max(1, quality_score))
 
         # Combine results
         result = {
             **stock_check,
             'options': options_check,
+            'technical_analysis': technical,
+            'candlestick_patterns': patterns,
             'setup_quality': setup_quality
         }
 
-        print(f"   ⭐ Setup Quality: {setup_quality}/5 stars")
+        print(f"\n   ⭐ Overall Setup Quality: {setup_quality}/5 stars")
 
         return result
 

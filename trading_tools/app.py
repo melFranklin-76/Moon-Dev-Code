@@ -329,6 +329,114 @@ def show_stock_details(result):
     - **Delta:** ~{opts['delta']:.2f}
     """)
 
+    # Technical Indicators
+    if result.get('technical_analysis'):
+        st.markdown("### 📈 Technical Indicators")
+
+        technical = result['technical_analysis']
+
+        # Trade Signal
+        if technical.get('trade_signal'):
+            signal = technical['trade_signal']
+            st.markdown(f"""
+            <div class="stat-card {'success-card' if 'BUY' in signal['signal'] else 'warning-card'}">
+                <h3>{signal['emoji']} {signal['signal']} (Score: {signal['score']})</h3>
+                <p><strong>Bullish Signals:</strong> {signal['bullish_count']} | <strong>Bearish Signals:</strong> {signal['bearish_count']}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Show signals
+            if signal.get('bullish_signals'):
+                st.markdown("**✅ Bullish Signals:**")
+                for s in signal['bullish_signals']:
+                    st.markdown(f"- {s}")
+
+            if signal.get('bearish_signals'):
+                st.markdown("**❌ Bearish Signals:**")
+                for s in signal['bearish_signals']:
+                    st.markdown(f"- {s}")
+
+        # Key Indicators
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            if technical.get('macd'):
+                macd = technical['macd']
+                st.metric("MACD",
+                         "✅ Positive" if macd['is_positive'] else "❌ Negative",
+                         f"Hist: {macd['histogram']:.3f}")
+
+        with col2:
+            if technical.get('rsi'):
+                rsi = technical['rsi']
+                st.metric("RSI",
+                         f"{rsi['rsi']:.1f}",
+                         rsi['signal'])
+
+        with col3:
+            if technical.get('moving_averages'):
+                mas = technical['moving_averages']
+                st.metric("Trend",
+                         mas['trend'],
+                         mas['trend_emoji'])
+
+        # More details in expander
+        with st.expander("📊 View All Indicators"):
+            if technical.get('moving_averages'):
+                mas = technical['moving_averages']
+                st.markdown("**Moving Averages:**")
+                col1, col2 = st.columns(2)
+                with col1:
+                    if mas.get('ema_9'):
+                        st.markdown(f"- 9 EMA: ${mas['ema_9']:.2f} {'✅' if mas['above_ema_9'] else '❌'}")
+                    if mas.get('ema_20'):
+                        st.markdown(f"- 20 EMA: ${mas['ema_20']:.2f} {'✅' if mas['above_ema_20'] else '❌'}")
+                with col2:
+                    if mas.get('ema_50'):
+                        st.markdown(f"- 50 EMA: ${mas['ema_50']:.2f} {'✅' if mas['above_ema_50'] else '❌'}")
+                    if mas.get('ema_200'):
+                        st.markdown(f"- 200 EMA: ${mas['ema_200']:.2f} {'✅' if mas['above_ema_200'] else '❌'}")
+
+            if technical.get('atr'):
+                atr = technical['atr']
+                st.markdown("**Volatility (ATR):**")
+                st.markdown(f"- ATR: ${atr['atr']:.2f} ({atr['atr_percent']:.1f}% of price)")
+                st.markdown(f"- Volatility: {atr['volatility_level']}")
+                st.markdown(f"- Suggested stop loss: ${atr['stop_loss_1_5x_atr']:.2f} (1.5x ATR)")
+
+            if technical.get('bollinger_bands'):
+                bb = technical['bollinger_bands']
+                st.markdown("**Bollinger Bands:**")
+                st.markdown(f"- Upper: ${bb['upper_band']:.2f}")
+                st.markdown(f"- Middle: ${bb['middle_band']:.2f}")
+                st.markdown(f"- Lower: ${bb['lower_band']:.2f}")
+                st.markdown(f"- Position: {bb['emoji']} {bb['signal']}")
+
+    # Candlestick Patterns
+    if result.get('candlestick_patterns'):
+        patterns = result['candlestick_patterns']
+
+        if patterns.get('pattern_count', 0) > 0:
+            st.markdown("### 🕯️ Candlestick Patterns")
+
+            st.markdown(f"""
+            <div class="stat-card {'success-card' if patterns['overall_signal'] == 'BULLISH' else 'danger-card' if patterns['overall_signal'] == 'BEARISH' else ''}">
+                <h3>{patterns['signal_emoji']} {patterns['overall_signal']}</h3>
+                <p>Found {patterns['pattern_count']} pattern(s) | Bullish: {patterns['bullish_patterns']} | Bearish: {patterns['bearish_patterns']}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown("**Detected Patterns:**")
+            for p in patterns['patterns_found']:
+                pattern_color = "success-card" if p['type'] == 'BULLISH' else "danger-card" if p['type'] == 'BEARISH' else ""
+                st.markdown(f"""
+                <div class="stat-card {pattern_color}">
+                    <h4>{p['emoji']} {p['name']}</h4>
+                    <p>{p['description']}<br>
+                    <strong>Type:</strong> {p['type']} | <strong>Strength:</strong> {p['strength']}</p>
+                </div>
+                """, unsafe_allow_html=True)
+
 
 def calculator_page():
     """Position Calculator Page"""

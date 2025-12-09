@@ -392,21 +392,30 @@ def get_market_gainers():
         list of ticker symbols
     """
     try:
-        # Popular optionable stocks in the $2-$20 range that are frequently active
-        # These are common day trading stocks with good options liquidity
+        # Small cap & penny stocks under $50 with liquid options
+        # Perfect for Ross Cameron's 5-pillar strategy and small accounts
         candidate_pool = [
-            # Tech/Growth
-            "PLTR", "SOFI", "NIO", "LCID", "RIVN", "F", "NOK", "BABA", "GRAB",
-            # Meme/Retail favorites
-            "AMC", "APE", "GME", "BBBY", "CLOV", "WISH", "SNDL",
-            # Biotech/Pharma (volatile)
-            "SAVA", "OCGN", "VXRT", "SENS", "PTON",
-            # Energy/Materials
-            "FCEL", "PLUG", "TELL", "CLF", "AA",
-            # Others
-            "HOOD", "DKNG", "COIN", "SNAP", "UBER", "LYFT",
-            # High volume optionable
-            "AMD", "NVDA", "TSLA", "AAPL", "MSFT", "GOOGL", "META"
+            # Under $10 - High volatility day trading favorites
+            "SNDL", "NOK", "F", "SOFI", "NIO", "LCID", "CLOV", "WISH",
+            "PLUG", "FCEL", "TELL", "SENS", "VXRT", "OCGN", "GRAB",
+
+            # $10-$20 - Popular retail/meme stocks
+            "AMC", "PTON", "RIVN", "HOOD", "SNAP", "LYFT", "BABA",
+
+            # $20-$50 - Mid-range movers with good options
+            "PLTR", "DKNG", "GME", "COIN", "SAVA", "CLF", "AA",
+
+            # Biotech/Pharma under $30 (volatile)
+            "BBBY", "APE", "BBIG", "MULN", "GNUS",
+
+            # Energy/Materials under $25
+            "ET", "MRO", "VALE", "FCX", "SWN",
+
+            # Recent IPOs/SPACs under $20
+            "OPEN", "GOEV", "FSR", "QS", "BLNK",
+
+            # Small cap tech under $30
+            "FUBO", "NKLA", "RIDE", "WKHS", "SKLZ"
         ]
 
         # Check each stock for today's performance
@@ -417,10 +426,10 @@ def get_market_gainers():
         # Show progress
         progress_placeholder = st.empty()
 
-        for ticker in candidate_pool[:25]:  # Check first 25 stocks
+        for ticker in candidate_pool[:30]:  # Check first 30 stocks
             try:
                 checked += 1
-                progress_placeholder.text(f"Checking {ticker}... ({checked}/25)")
+                progress_placeholder.text(f"Checking {ticker}... ({checked}/30)")
 
                 stock = yf.Ticker(ticker)
 
@@ -444,8 +453,8 @@ def get_market_gainers():
                 # Calculate gain
                 gain_pct = ((current_price - prev_close) / prev_close) * 100
 
-                # Check if it's in price range first
-                if 2.0 <= current_price <= 20.0:
+                # Focus on $2-$20 sweet spot, but allow up to $50
+                if 2.0 <= current_price <= 50.0:
                     in_range += 1
 
                     # Lower threshold to 3% to find more opportunities
@@ -462,7 +471,7 @@ def get_market_gainers():
         progress_placeholder.empty()
 
         # Show debug info
-        st.info(f"📊 Checked {checked} stocks | {in_range} in $2-$20 range | {len(gainers)} gaining 3%+")
+        st.info(f"📊 Checked {checked} stocks | {in_range} in $2-$50 range | {len(gainers)} gaining 3%+")
 
         # Sort by gain % descending
         gainers.sort(key=lambda x: x['gain_pct'], reverse=True)
@@ -478,13 +487,13 @@ def get_market_gainers():
 def auto_scan_market():
     """Auto-scan market for top gainers"""
     try:
-        st.info("🤖 Searching for today's top gainers in $2-$20 range...")
+        st.info("🤖 Searching for today's top small cap gainers ($2-$50 range)...")
 
         # Get top gainers
         gainers = get_market_gainers()
 
         if not gainers:
-            st.warning("⚠️ No strong gainers found in the target range today. Try manual entry or demo scan.")
+            st.warning("⚠️ No strong gainers found in the small cap range today. Try manual entry or demo scan.")
             return
 
         st.success(f"✅ Found {len(gainers)} gainers! Scanning: {', '.join(gainers)}")

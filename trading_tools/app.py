@@ -177,6 +177,16 @@ def scanner_page():
     st.markdown("## 🔍 Options Scanner")
     st.markdown("*Find stocks with 5-pillar setups + liquid options*")
 
+    # Check if technical analysis is available
+    try:
+        from options_scanner import TECHNICAL_ANALYSIS_AVAILABLE
+        if TECHNICAL_ANALYSIS_AVAILABLE:
+            st.success("✅ Technical Analysis & Patterns: ACTIVE")
+        else:
+            st.warning("⚠️ Technical Analysis: Unavailable (using basic scan only)")
+    except:
+        st.warning("⚠️ Technical Analysis: Unavailable (using basic scan only)")
+
     # Instructions
     with st.expander("📖 How to use"):
         st.markdown("""

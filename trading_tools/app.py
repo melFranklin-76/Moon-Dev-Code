@@ -125,6 +125,56 @@ if 'scan_results' not in st.session_state:
 if 'selected_ticker' not in st.session_state:
     st.session_state.selected_ticker = None
 
+if 'watchlists' not in st.session_state:
+    # Load watchlists from file or create default ones
+    st.session_state.watchlists = load_watchlists()
+
+# ============================================================================
+# WATCHLIST MANAGEMENT FUNCTIONS
+# ============================================================================
+
+def load_watchlists():
+    """Load watchlists from file or create defaults"""
+    watchlist_file = Path("watchlists.json")
+
+    if watchlist_file.exists():
+        try:
+            with open(watchlist_file, 'r') as f:
+                data = json.load(f)
+                return data.get('watchlists', get_default_watchlists())
+        except:
+            return get_default_watchlists()
+    else:
+        return get_default_watchlists()
+
+def get_default_watchlists():
+    """Create default watchlists"""
+    return {
+        "Morning Movers": {
+            "tickers": ["PTON", "SNDL", "NOK", "SOFI", "AMC", "PLTR"],
+            "description": "Small caps under $20 with high momentum"
+        },
+        "Biotech Plays": {
+            "tickers": ["SAVA", "OCGN", "VXRT", "SENS", "GNUS"],
+            "description": "Volatile biotech/pharma stocks"
+        },
+        "EV & Tech": {
+            "tickers": ["RIVN", "LCID", "NIO", "PLUG", "FCEL"],
+            "description": "Electric vehicle and green energy"
+        }
+    }
+
+def save_watchlists():
+    """Save watchlists to file"""
+    try:
+        watchlist_file = Path("watchlists.json")
+        with open(watchlist_file, 'w') as f:
+            json.dump({'watchlists': st.session_state.watchlists}, f, indent=2)
+        return True
+    except Exception as e:
+        st.error(f"Error saving watchlists: {e}")
+        return False
+
 # Main navigation
 def main():
     # App header
@@ -153,8 +203,9 @@ def main():
     st.markdown("---")
 
     # Navigation tabs
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "🔍 Scanner",
+        "💾 Watchlists",
         "💰 Calculator",
         "📒 Journal",
         "📊 Dashboard"
@@ -164,12 +215,15 @@ def main():
         scanner_page()
 
     with tab2:
-        calculator_page()
+        watchlist_page()
 
     with tab3:
-        journal_page()
+        calculator_page()
 
     with tab4:
+        journal_page()
+
+    with tab5:
         dashboard_page()
 
 
@@ -337,6 +391,21 @@ def scanner_page():
     except:
         st.warning("⚠️ Technical Analysis: Unavailable (using basic scan only)")
 
+    # Show saved watchlists at top
+    if st.session_state.watchlists:
+        st.markdown("### 💾 Quick Scan Watchlists")
+        cols = st.columns(min(3, len(st.session_state.watchlists)))
+
+        for idx, (name, data) in enumerate(list(st.session_state.watchlists.items())[:3]):
+            with cols[idx % 3]:
+                if st.button(f"🔍 {name}", key=f"quick_scan_{name}", use_container_width=True):
+                    tickers_str = ', '.join(data['tickers'])
+                    st.info(f"Scanning {name}: {tickers_str}")
+                    with st.spinner(f"🔍 Scanning {name}..."):
+                        scan_stocks(tickers_str)
+
+        st.markdown("---")
+
     # Instructions
     with st.expander("📖 How to use"):
         st.markdown("""
@@ -382,6 +451,179 @@ def scanner_page():
     # Display results
     if st.session_state.scan_results is not None:
         display_scan_results()
+
+
+def watchlist_page():
+    """Watchlist Management Page"""
+    st.markdown("## 💾 Watchlist Manager")
+    st.markdown("*Save your favorite tickers and scan them with one tap*")
+
+    # Tabs for View vs Create
+    tab1, tab2 = st.tabs(["📋 My Watchlists", "➕ Create New"])
+
+    with tab1:
+        view_watchlists()
+
+    with tab2:
+        create_watchlist_form()
+
+
+def view_watchlists():
+    """Display all saved watchlists"""
+    if not st.session_state.watchlists:
+        st.info("📭 No watchlists yet. Create your first one in the 'Create New' tab!")
+        return
+
+    st.markdown(f"### 📋 You have {len(st.session_state.watchlists)} watchlist(s)")
+
+    for name, data in st.session_state.watchlists.items():
+        tickers = data['tickers']
+        description = data.get('description', 'No description')
+
+        # Create expandable card for each watchlist
+        with st.expander(f"📊 {name} ({len(tickers)} stocks)", expanded=False):
+            st.markdown(f"**Description:** {description}")
+            st.markdown(f"**Tickers:** {', '.join(tickers)}")
+
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                if st.button("🔍 Scan This List", key=f"scan_{name}", use_container_width=True):
+                    tickers_str = ', '.join(tickers)
+                    st.info(f"Scanning {name}...")
+                    with st.spinner(f"🔍 Scanning {len(tickers)} stocks..."):
+                        scan_stocks(tickers_str)
+                    st.success("✅ Scan complete! Check Scanner tab for results")
+
+            with col2:
+                if st.button("✏️ Edit", key=f"edit_{name}", use_container_width=True):
+                    edit_watchlist(name, data)
+
+            with col3:
+                if st.button("🗑️ Delete", key=f"delete_{name}", use_container_width=True):
+                    if st.session_state.get(f'confirm_delete_{name}'):
+                        # Confirmed delete
+                        del st.session_state.watchlists[name]
+                        save_watchlists()
+                        st.success(f"✅ Deleted '{name}'")
+                        st.session_state[f'confirm_delete_{name}'] = False
+                        st.rerun()
+                    else:
+                        # First click - ask for confirmation
+                        st.session_state[f'confirm_delete_{name}'] = True
+                        st.warning(f"⚠️ Tap 'Delete' again to confirm deletion of '{name}'")
+
+
+def edit_watchlist(name, data):
+    """Edit an existing watchlist"""
+    st.markdown(f"### ✏️ Editing: {name}")
+
+    new_description = st.text_input(
+        "Description:",
+        value=data.get('description', ''),
+        key=f"edit_desc_{name}"
+    )
+
+    current_tickers = ', '.join(data['tickers'])
+    new_tickers_input = st.text_area(
+        "Tickers (comma-separated):",
+        value=current_tickers,
+        height=100,
+        key=f"edit_tickers_{name}"
+    )
+
+    if st.button("💾 Save Changes", key=f"save_edit_{name}"):
+        # Parse tickers
+        new_tickers = [t.strip().upper() for t in new_tickers_input.split(',') if t.strip()]
+
+        if not new_tickers:
+            st.error("❌ Please enter at least one ticker")
+            return
+
+        # Update watchlist
+        st.session_state.watchlists[name]['tickers'] = new_tickers
+        st.session_state.watchlists[name]['description'] = new_description
+
+        # Save to file
+        if save_watchlists():
+            st.success(f"✅ Updated '{name}'!")
+            st.rerun()
+
+
+def create_watchlist_form():
+    """Form to create a new watchlist"""
+    st.markdown("### ➕ Create New Watchlist")
+
+    watchlist_name = st.text_input(
+        "Watchlist Name:",
+        placeholder="My Favorite Stocks",
+        key="new_watchlist_name"
+    )
+
+    description = st.text_input(
+        "Description (optional):",
+        placeholder="Small cap momentum plays under $20",
+        key="new_watchlist_description"
+    )
+
+    tickers_input = st.text_area(
+        "Tickers (comma-separated):",
+        placeholder="PTON, SNDL, NOK, SOFI, AMC, PLTR",
+        height=150,
+        help="Enter ticker symbols separated by commas",
+        key="new_watchlist_tickers"
+    )
+
+    st.markdown("**💡 Quick Ideas:**")
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        if st.button("📱 Add Small Caps", key="quick_small_caps"):
+            st.session_state.new_watchlist_tickers = "SNDL, NOK, F, SOFI, NIO, LCID, AMC"
+            st.rerun()
+
+    with col2:
+        if st.button("🧬 Add Biotech", key="quick_biotech"):
+            st.session_state.new_watchlist_tickers = "SAVA, OCGN, VXRT, SENS, GNUS, BBIG"
+            st.rerun()
+
+    with col3:
+        if st.button("⚡ Add EV/Tech", key="quick_ev_tech"):
+            st.session_state.new_watchlist_tickers = "RIVN, LCID, NIO, PLUG, FCEL, BLNK"
+            st.rerun()
+
+    if st.button("💾 CREATE WATCHLIST", type="primary"):
+        # Validate inputs
+        if not watchlist_name:
+            st.error("❌ Please enter a watchlist name")
+            return
+
+        if watchlist_name in st.session_state.watchlists:
+            st.error(f"❌ Watchlist '{watchlist_name}' already exists. Choose a different name.")
+            return
+
+        if not tickers_input:
+            st.error("❌ Please enter at least one ticker")
+            return
+
+        # Parse tickers
+        tickers = [t.strip().upper() for t in tickers_input.split(',') if t.strip()]
+
+        if not tickers:
+            st.error("❌ No valid tickers found")
+            return
+
+        # Create new watchlist
+        st.session_state.watchlists[watchlist_name] = {
+            'tickers': tickers,
+            'description': description if description else 'No description'
+        }
+
+        # Save to file
+        if save_watchlists():
+            st.success(f"✅ Created '{watchlist_name}' with {len(tickers)} stocks!")
+            st.balloons()
+            st.info("💡 Go to 'My Watchlists' tab to scan it")
 
 
 def get_market_gainers():
@@ -741,11 +983,160 @@ def show_stock_details(result):
                 </div>
                 """, unsafe_allow_html=True)
 
+    # News Catalyst (Pillar 5)
+    if result.get('news_catalyst'):
+        news = result['news_catalyst']
+
+        st.markdown("### 📰 News Catalyst (Pillar 5)")
+
+        if news['has_catalyst']:
+            st.markdown(f"""
+            <div class="stat-card success-card">
+                <h3>✅ CATALYST DETECTED: {news['catalyst_type']}</h3>
+                <p>Recent news activity detected (last 24 hours) - {news['news_count']} item(s)</p>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div class="stat-card warning-card">
+                <h3>ℹ️ No Recent Catalyst</h3>
+                <p>No significant news in last 24 hours. Check headlines below.</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Show recent headlines
+        if news.get('recent_headlines'):
+            st.markdown("**Recent Headlines:**")
+
+            for i, headline in enumerate(news['recent_headlines'][:3]):
+                st.markdown(f"""
+                <div class="stat-card">
+                    <h4>📰 {headline['title']}</h4>
+                    <p>
+                        <strong>Source:</strong> {headline['publisher']}<br>
+                        <strong>Time:</strong> {headline['time_ago']}
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+
 
 def calculator_page():
     """Position Calculator Page"""
     st.markdown("## 💰 Position Calculator")
     st.markdown("*Calculate contract quantity with Greeks analysis*")
+
+    # Trade Plan Builder Section
+    with st.expander("📋 TRADE PLAN BUILDER (Recommended)", expanded=True):
+        st.markdown("### 📋 Pre-Trade Checklist")
+        st.markdown("*Answer these questions before entering any trade*")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("**🎯 Setup Validation**")
+            pillar_price = st.checkbox("✓ Price $2-$20?", key="checklist_price")
+            pillar_float = st.checkbox("✓ Float < 20M?", key="checklist_float")
+            pillar_volume = st.checkbox("✓ Rel Volume 5x+?", key="checklist_volume")
+            pillar_gain = st.checkbox("✓ Gain 10%+?", key="checklist_gain")
+            pillar_catalyst = st.checkbox("✓ News catalyst?", key="checklist_catalyst")
+
+        with col2:
+            st.markdown("**📈 Technical Confirmation**")
+            tech_macd = st.checkbox("✓ MACD positive?", key="checklist_macd")
+            tech_rsi = st.checkbox("✓ RSI favorable (not overbought)?", key="checklist_rsi")
+            tech_pattern = st.checkbox("✓ Bullish pattern detected?", key="checklist_pattern")
+            tech_options = st.checkbox("✓ Options liquid (OI>100)?", key="checklist_options")
+            tech_spread = st.checkbox("✓ Spread < 10%?", key="checklist_spread")
+
+        # Calculate checklist score
+        checklist_items = [
+            pillar_price, pillar_float, pillar_volume, pillar_gain, pillar_catalyst,
+            tech_macd, tech_rsi, tech_pattern, tech_options, tech_spread
+        ]
+        checklist_score = sum(checklist_items)
+        checklist_total = len(checklist_items)
+        checklist_percent = (checklist_score / checklist_total) * 100
+
+        # Show score
+        if checklist_percent >= 80:
+            st.success(f"✅ EXCELLENT SETUP: {checklist_score}/{checklist_total} ({checklist_percent:.0f}%) - TRADE THIS!")
+        elif checklist_percent >= 60:
+            st.warning(f"⚠️ DECENT SETUP: {checklist_score}/{checklist_total} ({checklist_percent:.0f}%) - Consider carefully")
+        else:
+            st.error(f"❌ WEAK SETUP: {checklist_score}/{checklist_total} ({checklist_percent:.0f}%) - SKIP THIS TRADE")
+
+        # Risk Management Calculator
+        st.markdown("### ⚖️ Risk Management Plan")
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            plan_entry = st.number_input(
+                "Entry Price ($):",
+                min_value=0.01,
+                value=6.00,
+                step=0.01,
+                key="plan_entry"
+            )
+
+        with col2:
+            plan_target = st.number_input(
+                "Target Price ($):",
+                min_value=0.01,
+                value=6.60,
+                step=0.01,
+                key="plan_target",
+                help="Where will you take profit?"
+            )
+
+        with col3:
+            plan_stop = st.number_input(
+                "Stop Loss ($):",
+                min_value=0.01,
+                value=5.70,
+                step=0.01,
+                key="plan_stop",
+                help="Where will you cut losses?"
+            )
+
+        # Calculate risk/reward
+        potential_gain = plan_target - plan_entry
+        potential_loss = plan_entry - plan_stop
+        gain_percent = (potential_gain / plan_entry) * 100
+        loss_percent = (potential_loss / plan_entry) * 100
+
+        if potential_loss > 0:
+            risk_reward_ratio = potential_gain / potential_loss
+        else:
+            risk_reward_ratio = 0
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.metric("Potential Gain", f"+{gain_percent:.1f}%", f"${potential_gain:.2f}")
+
+        with col2:
+            st.metric("Potential Loss", f"-{loss_percent:.1f}%", f"${potential_loss:.2f}")
+
+        with col3:
+            if risk_reward_ratio >= 2.0:
+                st.metric("Risk/Reward", f"{risk_reward_ratio:.2f}:1", "✅ Good")
+            elif risk_reward_ratio >= 1.5:
+                st.metric("Risk/Reward", f"{risk_reward_ratio:.2f}:1", "⚠️ OK")
+            else:
+                st.metric("Risk/Reward", f"{risk_reward_ratio:.2f}:1", "❌ Poor")
+
+        # Trade readiness
+        if checklist_percent >= 70 and risk_reward_ratio >= 1.5:
+            st.success("🎯 TRADE IS READY! Proceed with position calculator below.")
+        elif checklist_percent >= 70:
+            st.warning("⚠️ Setup is good but risk/reward is weak. Adjust your target/stop.")
+        elif risk_reward_ratio >= 1.5:
+            st.warning("⚠️ Risk/reward is good but setup quality is weak. Wait for better setup.")
+        else:
+            st.error("❌ NOT READY TO TRADE! Improve both setup quality and risk/reward.")
+
+    st.markdown("---")
 
     # Check if ticker selected from scanner
     if st.session_state.selected_ticker:

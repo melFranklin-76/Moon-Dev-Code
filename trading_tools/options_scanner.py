@@ -35,6 +35,14 @@ except ImportError:
     TECHNICAL_ANALYSIS_AVAILABLE = False
     print("⚠️  Technical analysis modules not available")
 
+# Import news fetcher
+try:
+    from news_fetcher import NewsFetcher
+    NEWS_FETCHER_AVAILABLE = True
+except ImportError:
+    NEWS_FETCHER_AVAILABLE = False
+    print("⚠️  News fetcher module not available")
+
 
 class OptionsScanner:
     def __init__(self,
@@ -336,6 +344,39 @@ class OptionsScanner:
             print(f"   ⚠️  Pattern recognition error for {ticker}: {str(e)}")
             return None
 
+    def get_news_catalyst(self, ticker: str) -> Optional[Dict]:
+        """
+        Check for recent news catalyst (Pillar 5)
+
+        Args:
+            ticker: Stock symbol
+
+        Returns:
+            Dict with news and catalyst info or None
+        """
+        if not NEWS_FETCHER_AVAILABLE:
+            return None
+
+        try:
+            fetcher = NewsFetcher(ticker)
+
+            # Get recent news (last 24 hours)
+            catalyst = fetcher.has_recent_catalyst(hours=24)
+
+            # Get top 3 news items regardless of timing
+            recent_news = fetcher.get_recent_news(max_items=3)
+
+            return {
+                'has_catalyst': catalyst['has_catalyst'],
+                'catalyst_type': catalyst['catalyst_type'],
+                'news_count': catalyst['news_count'],
+                'recent_headlines': recent_news
+            }
+
+        except Exception as e:
+            print(f"   ⚠️  News fetch error for {ticker}: {str(e)}")
+            return None
+
     def scan_ticker(self, ticker: str) -> Optional[Dict]:
         """
         Complete scan of a single ticker
@@ -417,6 +458,21 @@ class OptionsScanner:
         else:
             print(f"   ➡️ No significant patterns")
 
+        # Get news catalyst (Pillar 5)
+        print(f"\n   📰 Checking for news catalyst...")
+        news = self.get_news_catalyst(ticker)
+
+        if news:
+            if news['has_catalyst']:
+                print(f"   ✅ CATALYST DETECTED: {news['catalyst_type']}")
+                if news['recent_headlines']:
+                    print(f"      Latest: {news['recent_headlines'][0]['title']}")
+                    print(f"      ({news['recent_headlines'][0]['time_ago']})")
+            else:
+                print(f"   ℹ️  No recent catalyst (last 24h)")
+                if news['recent_headlines']:
+                    print(f"      Recent news: {news['recent_headlines'][0]['title']}")
+
         # Calculate setup quality (1-5 stars)
         quality_score = 0
 
@@ -446,6 +502,10 @@ class OptionsScanner:
         if patterns and patterns.get('overall_signal') == 'BULLISH':
             quality_score += 1
 
+        # News catalyst bonus (Pillar 5 validation)
+        if news and news['has_catalyst']:
+            quality_score += 1
+
         setup_quality = min(5, max(1, quality_score))
 
         # Combine results
@@ -454,6 +514,7 @@ class OptionsScanner:
             'options': options_check,
             'technical_analysis': technical,
             'candlestick_patterns': patterns,
+            'news_catalyst': news,
             'setup_quality': setup_quality
         }
 

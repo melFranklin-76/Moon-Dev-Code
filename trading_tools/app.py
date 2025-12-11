@@ -115,20 +115,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Initialize session state
-if 'account_balance' not in st.session_state:
-    st.session_state.account_balance = 2800.0
-
-if 'scan_results' not in st.session_state:
-    st.session_state.scan_results = None
-
-if 'selected_ticker' not in st.session_state:
-    st.session_state.selected_ticker = None
-
-if 'watchlists' not in st.session_state:
-    # Load watchlists from file or create default ones
-    st.session_state.watchlists = load_watchlists()
-
 # ============================================================================
 # WATCHLIST MANAGEMENT FUNCTIONS
 # ============================================================================
@@ -175,7 +161,27 @@ def save_watchlists():
         st.error(f"Error saving watchlists: {e}")
         return False
 
-# Main navigation
+# ============================================================================
+# INITIALIZE SESSION STATE
+# ============================================================================
+
+if 'account_balance' not in st.session_state:
+    st.session_state.account_balance = 2800.0
+
+if 'scan_results' not in st.session_state:
+    st.session_state.scan_results = None
+
+if 'selected_ticker' not in st.session_state:
+    st.session_state.selected_ticker = None
+
+if 'watchlists' not in st.session_state:
+    # Load watchlists from file or create default ones
+    st.session_state.watchlists = load_watchlists()
+
+# ============================================================================
+# MAIN APPLICATION
+# ============================================================================
+
 def main():
     # App header
     st.markdown("# 📈 Ross Cameron Options Trader")

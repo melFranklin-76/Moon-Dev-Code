@@ -4,10 +4,12 @@ ROSS CAMERON OPTIONS TRADING APP
 Mobile-Optimized Web Interface for iPhone
 
 Access all your trading tools from your phone:
-- Options Scanner
-- Position Calculator
+- Options Scanner with Technical Analysis
+- Watchlist Manager
+- Position Calculator with Trade Plan Builder
 - Trade Journal
 - Performance Dashboard
+- News Feed Integration
 
 No terminal commands needed - just tap buttons! 📱
 """

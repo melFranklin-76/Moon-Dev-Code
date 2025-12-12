@@ -774,13 +774,13 @@ def scan_stocks(tickers_input):
         # Parse tickers
         tickers = [t.strip().upper() for t in tickers_input.split(',')]
 
-        # Initialize scanner
+        # Initialize scanner with relaxed criteria for better results
         scanner = OptionsScanner(
             min_price=2.0,
-            max_price=20.0,
+            max_price=100.0,          # Increased from $20 to $100 (allows mid-cap stocks)
             max_float=20_000_000,
-            min_rel_volume=5.0,
-            min_gain_percent=10.0,
+            min_rel_volume=2.0,       # Reduced from 5x to 2x (easier to find)
+            min_gain_percent=3.0,     # Reduced from 10% to 3% (realistic for normal days)
             min_open_interest=100,
             max_spread_percent=10.0,
             min_option_volume=50

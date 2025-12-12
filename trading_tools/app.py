@@ -778,7 +778,7 @@ def scan_stocks(tickers_input):
         scanner = OptionsScanner(
             min_price=2.0,
             max_price=100.0,          # Increased from $20 to $100 (allows mid-cap stocks)
-            max_float=20_000_000,
+            max_float=1_000_000_000,  # Effectively unlimited (removed float restriction)
             min_rel_volume=2.0,       # Reduced from 5x to 2x (easier to find)
             min_gain_percent=3.0,     # Reduced from 10% to 3% (realistic for normal days)
             min_open_interest=100,

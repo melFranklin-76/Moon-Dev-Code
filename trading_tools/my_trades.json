@@ -1,0 +1,21 @@
+[
+  {
+    "trade_number": 1,
+    "date": "2025-12-06",
+    "ticker": "ATON",
+    "entry_time": "07:05",
+    "exit_time": "07:08",
+    "entry_price": 3.64,
+    "exit_price": 4.03,
+    "shares": 769,
+    "position_value": 2799.16,
+    "gross_pnl": 299.91,
+    "pnl_percent": 10.71,
+    "result": "WIN",
+    "macd_positive": true,
+    "volume_profile": "Strong buying, light selling",
+    "pattern": "Pullback - Cup and Handle",
+    "setup_quality": 5,
+    "notes": "Perfect 5-pillar setup. Breaking news catalyst. Low float stock."
+  }
+]
